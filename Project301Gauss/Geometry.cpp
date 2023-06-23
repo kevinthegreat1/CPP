@@ -1,34 +1,42 @@
-#include <cstdio>
+#include <iostream>
 #include <cmath>
+#include <vector>
+#include <map>
 
 using namespace std;
+
+float EPS = 1e-7;
 
 typedef struct Point {
     int x, y;
 
     explicit Point(int x = 0, int y = 0) : x(x), y(y) {}
 
-    double distanceSquared(Point other) {
+    bool operator==(Point other) const {
+        return this->x == other.x && this->y == other.y;
+    }
+
+    double distanceSquared(Point other) const {
         return pow(other.x - this->x, 2) + pow(other.y - this->y, 2);
     }
 
-    double distance(Point other) {
+    double distance(Point other) const {
         return sqrt(distanceSquared(other));
     }
 
-    Point add(Point other) {
+    Point operator+(Point other) const {
         return Point(this->x + other.x, this->y + other.y);
     }
 
-    Point sub(Point other) {
+    Point operator-(Point other) const {
         return Point(this->x - other.x, this->y - other.y);
     }
 
-    double magnitude() {
+    double magnitude() const {
         return sqrt(pow(this->x, 2) + pow(this->y, 2));
     }
 
-    double dot(Point other) {
+    double dot(Point other) const {
         return this->x * other.x + this->y * other.y;
     }
 } Point;
@@ -38,7 +46,7 @@ typedef struct Line {
 
     Line(Point p1, Point p2) : p1(p1), p2(p2) {}
 
-    double getSlope() {
+    double getSlope() const {
         return (double) (p2.y - p1.y) / (p2.x - p1.x);
     }
 } Line;
@@ -104,12 +112,12 @@ typedef struct Polygon {
 } Polygon;
 
 double ConvexArea(Polygon p) {
-    double area = 0;
+    int area = 0;
     for (int i = 0; i < p.n; i++) {
         area += p.vertices[i].x * p.vertices[i + 1 == p.n ? 0 : i + 1].y -
                 p.vertices[i + 1 == p.n ? 0 : i + 1].x * p.vertices[i].y;
     }
-    return area / 2;
+    return fabs(area) / 2;
 }
 
 bool InConvex(Polygon p, Point point) {
@@ -134,19 +142,86 @@ bool InConvex(Polygon p, Point point) {
 bool InPolygon(Polygon p, Point point) {
     double ang = 0;
     for (int i = 0; i < p.n; i++) {
-        ang += angle(p.vertices[i].sub(point), p.vertices[i + 1 == p.n ? 0 : i + 1].sub(point));
+        ang += angle(p.vertices[i] - point, p.vertices[i + 1 == p.n ? 0 : i + 1] - point);
     }
-    return fabs(ang) == 2 * M_PI;
+    return fabs(fabs(ang) - 2 * M_PI) < EPS;
+}
+
+vector<Point> Graham(Point *ps, int n) {
+    Point *minimum = &ps[0];
+    for (int i = 1; i < n; i++) {
+        if (ps[i].y <= minimum->y && ps[i].x <= minimum->x) {
+            minimum = &ps[i];
+        }
+    }
+    Point horizontal = Point(1, 0);
+    map<double, Point> angleMap;
+    angleMap[-1] = *minimum;
+    for (int i = 0; i < n; i++) {
+        if (&ps[i] == minimum) { continue; }
+        double ang = angle(horizontal, ps[i] - *minimum);
+        if (angleMap.find(ang) != angleMap.end()) {
+            if (minimum->distanceSquared(angleMap.at(ang)) < minimum->distanceSquared(ps[i])) {
+                angleMap[ang] = ps[i];
+            } else { continue; }
+        } else {
+            angleMap[ang] = ps[i];
+        }
+    }
+    if (angleMap.size() <= 3) {
+        return {};
+    }
+    vector<Point> v;
+    auto it = angleMap.begin();
+    v.push_back(it++->second);
+    v.push_back(it++->second);
+    v.push_back(it++->second);
+    for (; it != angleMap.end(); it++) {
+        while (direction(*-- --v.end(), *--v.end(), it->second) >= 0) {
+            v.pop_back();
+        }
+        v.push_back(it->second);
+    }
+    return v;
 }
 
 // Circle
 
-const int N = 100;
-Point ps[N];
-int n;
-int res[N], cnt;
-
-void Graham() {
-
+int main() {
+    Line l1 = Line(Point(0, 0), Point(2, 0));
+    Line l2 = Line(Point(1, -1), Point(1, 1));
+    Line l3 = Line(Point(1, 1), Point(1, 2));
+    cout << "intersectSegment test 1: " << intersectSegment(l1, l2) << endl;
+    cout << "intersectLine test 1: " << intersectLine(l1, l2) << endl;
+    cout << "intersectSegment test 2: " << !intersectSegment(l1, l3) << endl;
+    cout << "intersectLine test 2: " << intersectLine(l1, l3) << endl;
+    cout << "intersectLineSegment test 1: " << !intersectLineSegment(l1, l3) << endl;
+    cout << "intersectLineSegment test 2: " << intersectLineSegment(l3, l1) << endl;
+    cout << "distance test 1: " << (distance(l1, Point(1, 1)) == 1) << endl;
+    cout << "distance test 2: " << (distance(l1, Point(10, 10)) == 10) << endl;
+    Polygon p1 = Polygon(new Point[4]{Point(0, 0), Point(0, 2), Point(2, 2), Point(2, 0)}, 4);
+    Polygon p2 = Polygon(new Point[4]{Point(0, 0), Point(2, 0), Point(4, 2), Point(2, 2)}, 4);
+    cout << "ConvexArea test 1: " << (ConvexArea(p1) == 4) << endl;
+    cout << "ConvexArea test 2: " << (ConvexArea(p2) == 4) << endl;
+    cout << "InConvex test 1: " << (InConvex(p1, Point(1, 1))) << endl;
+    cout << "InConvex test 2: " << (!InConvex(p1, Point(3, 3))) << endl;
+    cout << "InConvex test 3: " << (InConvex(p2, Point(2, 1))) << endl;
+    cout << "InConvex test 4: " << (InConvex(p2, Point(3, 1))) << endl;
+    cout << "InConvex test 5: " << (!InConvex(p2, Point(3, 0))) << endl;
+    cout << "InConvex test 6: " << (!InConvex(p2, Point(1, 2))) << endl;
+    cout << "InPolygon test 1: " << (InPolygon(p1, Point(1, 1))) << endl;
+    cout << "InPolygon test 2: " << (!InPolygon(p1, Point(3, 3))) << endl;
+    cout << "InPolygon test 3: " << (InPolygon(p2, Point(2, 1))) << endl;
+    cout << "InPolygon test 4: " << (InPolygon(p2, Point(3, 1))) << endl;
+    cout << "InPolygon test 5: " << (!InPolygon(p2, Point(3, 0))) << endl;
+    cout << "InPolygon test 6: " << (!InPolygon(p2, Point(1, 2))) << endl;
+    const int n = 10;
+    Point ps1[n] = {Point(0, 0), Point(1, 0), Point(2, 0), Point(3, 4), Point(1, 3), Point(4, 1), Point(0, 4),
+                    Point(-1, 5), Point(-2, 3), Point(-1, 1)};
+    vector<Point> convexHull = Graham(ps1, n);
+    cout << "Graham test 1: "
+         << (convexHull.size() == 7 && convexHull[0] == Point(0, 0) && convexHull[1] == Point(2, 0) &&
+             convexHull[2] == Point(4, 1) && convexHull[3] == Point(3, 4) && convexHull[4] == Point(-1, 5) &&
+             convexHull[5] == Point(-2, 3) && convexHull[6] == Point(-1, 1)) << endl;
+    return 0;
 }
-
