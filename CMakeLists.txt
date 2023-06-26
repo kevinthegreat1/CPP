@@ -2,4 +2,4 @@ cmake_minimum_required(VERSION 3.17)
 project(C++)
 
 set(CMAKE_CXX_STANDARD 14)
-add_executable(Geometry Project301Gauss/Geometry.cpp)
+add_executable(Closest Project302Geometry/Closest.cpp)
