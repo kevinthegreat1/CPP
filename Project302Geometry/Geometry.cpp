@@ -34,7 +34,6 @@ typedef struct Point {
 
     double magnitude() const {
         return distance(Point());
-        return sqrt(pow(this->x, 2) + pow(this->y, 2));
     }
 
     long operator*(const Point &other) const {
@@ -45,6 +44,24 @@ typedef struct Point {
         return x * other.y - y * other.x;
     }
 } Point;
+
+typedef struct PointDouble {
+    double x, y;
+
+    explicit PointDouble(double x = 0, double y = 0) : x(x), y(y) {}
+
+    bool operator==(const PointDouble &other) const {
+        return fabs(this->x - other.x) < EPS && fabs(this->y - other.y) < EPS;
+    }
+
+    double distanceSquared(const PointDouble &other) const {
+        return (other.x - x) * (other.x - x) + (other.y - y) * (other.y - y);
+    }
+
+    double distance(const PointDouble &other) const {
+        return sqrt(distanceSquared(other));
+    }
+} PointDouble;
 
 typedef struct Line {
     Point p1, p2;
@@ -106,7 +123,7 @@ double distance(Line l, Point p) {
 }
 
 double angle(Point p1, Point p2) {
-    return acos(p1 * p2 / (p1.magnitude() * p2.magnitude()));
+    return acos((double) (p1 * p2) / (p1.magnitude() * p2.magnitude()));
 }
 
 typedef struct Polygon {
@@ -117,7 +134,7 @@ typedef struct Polygon {
 } Polygon;
 
 double ConvexArea(Polygon p) {
-    int area = 0;
+    long area = 0;
     for (int i = 0; i < p.n; i++) {
         area += p.vertices[i] ^ p.vertices[(i + 1) % p.n];
     }
@@ -189,7 +206,86 @@ vector<Point> Graham(Point *ps, int n) {
     return v;
 }
 
-// Circle
+// 圆
+// 三个点求一个圆
+// 两个相交的圆的重叠面积
+// 过一个点求圆的切线
+
+typedef struct Circle {
+    PointDouble c;
+    double r;
+
+    explicit Circle(PointDouble c = PointDouble(), double r = 0) : c(c), r(r) {}
+} Circle;
+
+Circle ofPoints(Point p1, Point p2, Point p3) {
+    double a = p1.x * (p2.y - p3.y) - p1.y * (p2.x - p3.x) + p2.x * p3.y - p3.x * p2.y;
+    if (a == 0) {
+        return Circle();
+    }
+    double a1 = p1.x * p1.x + p1.y * p1.y;
+    double a2 = p2.x * p2.x + p2.y * p2.y;
+    double a3 = p3.x * p3.x + p3.y * p3.y;
+    double b = a1 * (p2.y - p3.y) + a2 * (p3.y - p1.y) + a3 * (p1.y - p2.y);
+    double c = a1 * (p3.x - p2.x) + a2 * (p1.x - p3.x) + a3 * (p2.x - p1.x);
+    double d = a1 * (p2.x * p3.y - p3.x * p2.y) + a2 * (p3.x * p1.y - p1.x * p3.y) + a3 * (p1.x * p2.y - p2.x * p1.y);
+    double x = b / (2 * a);
+    double y = c / (2 * a);
+    double r = sqrt((b * b + c * c + 4 * a * d) / (4 * a * a));
+    return Circle(PointDouble(x, y), r);
+}
+
+double overlappingArea(Circle c1, Circle c2) {
+    double d = c1.c.distance(c2.c);
+    if (d >= c1.r + c2.r) {
+        return 0;
+    }
+    if (d <= fabs(c1.r - c2.r)) {
+        return M_PI * min(c1.r, c2.r) * min(c1.r, c2.r);
+    }
+    return c1.r * c1.r * acos((d * d + c1.r * c1.r - c2.r * c2.r) / (2 * d * c1.r)) +
+           c2.r * c2.r * acos((d * d + c2.r * c2.r - c1.r * c1.r) / (2 * d * c2.r)) -
+           0.5 * sqrt((-d + c1.r + c2.r) * (d + c1.r - c2.r) * (d - c1.r + c2.r) * (d + c1.r + c2.r));
+}
+
+pair<PointDouble, PointDouble> getTangentPoints(Circle c, Point p) {
+    double dx = p.x - c.c.x;
+    double dy = p.y - c.c.y;
+    double d = sqrt(dx * dx + dy * dy);
+    if (d >= c.r) {
+        double rho = c.r / d;
+        double ad = rho * rho;
+        double bd = rho * sqrt(1 - rho * rho);
+        double t1x = c.c.x + ad * dx - bd * dy;
+        double t1y = c.c.y + ad * dy + bd * dx;
+        double t2x = c.c.x + ad * dx + bd * dy;
+        double t2y = c.c.y + ad * dy - bd * dx;
+        return make_pair(PointDouble(t1x, t1y), PointDouble(t2x, t2y));
+    }
+    return make_pair(PointDouble(), PointDouble());
+}
+
+//定积分
+// 函数->曲线->曲线和x轴所夹的面积
+// simpson
+double f(double x) { return x; }
+
+double simpson(double a, double b) {
+    double c = a + (b - a) / 2;
+    return (f(a) + 4 * f(c) + f(b)) * (b - a) / 6;
+}
+
+double asr(double left, double right, double eps, double prevValue) {
+    double mid = (left + right) / 2;
+    double leftValue = simpson(left, mid), rightValue = simpson(mid, right);
+    if (fabs(leftValue + rightValue - prevValue) < eps * 15)
+        return leftValue + rightValue + (leftValue + rightValue - prevValue) / 15;
+    return asr(left, mid, eps / 2, leftValue) + asr(mid, right, eps / 2, rightValue);
+}
+
+double asr(double left, double right, double eps) {
+    return asr(left, right, eps, simpson(left, right));
+}
 
 int main() {
     Line l1 = Line(Point(0, 0), Point(2, 0));
@@ -227,34 +323,15 @@ int main() {
          << (convexHull.size() == 7 && convexHull[0] == Point(0, 0) && convexHull[1] == Point(2, 0) &&
              convexHull[2] == Point(4, 1) && convexHull[3] == Point(3, 4) && convexHull[4] == Point(-1, 5) &&
              convexHull[5] == Point(-2, 3) && convexHull[6] == Point(-1, 1)) << endl;
+    Circle c1 = ofPoints(Point(1, 0), Point(0, 1), Point(-1, 0));
+    Circle c2 = ofPoints(Point(4, 0), Point(2, 2), Point(0, 0));
+    cout << "Circle.ofPoints test 1: " << (c1.c == PointDouble(0, 0) && c1.r == 1) << endl;
+    cout << "Circle.ofPoints test 2: " << (c2.c == PointDouble(2, 0) && c2.r == 2) << endl;
+    Circle c3 = Circle(PointDouble(0, 0), 2);
+    Circle c4 = Circle(PointDouble(2, 0), 1);
+    cout << "Circle.overlappingArea test 1: " << (fabs(fabs(overlappingArea(c3, c4)) - 1.40306643969) <= 1e-9) << endl;
+    pair<PointDouble, PointDouble> p = getTangentPoints(c3, Point(2, 2));
+    cout << "Circle.getTangentPoints test 1: " << (p.first == PointDouble(0, 2) && p.second == PointDouble(2, 0))
+         << endl;
     return 0;
-}
-
-
-// 圆
-// 三个点求一个圆
-// 两个相交的圆的重叠面积
-// 过一个点求圆的切线
-
-
-//定积分
-// 函数->曲线->曲线和x轴所夹的面积
-// simpson
-double F(double x);
-
-double simpson(double a, double b) {
-    double c = a + (b - a) / 2;
-    return (F(a) + 4 * F(c) + F(b)) * (b - a) / 6;
-}
-
-double asr(double left, double right, double eps, double prevValue) {
-    double mid = (left + right) / 2;
-    double leftValue = simpson(left, mid), rightValue = simpson(mid, right);
-    if (fabs(leftValue + rightValue - prevValue) < eps * 15)
-        return leftValue + rightValue + (leftValue + rightValue - prevValue) / 15;
-    return asr(left, mid, eps / 2, leftValue) + asr(mid, right, eps / 2, rightValue);
-}
-
-double asr(double left, double right, double eps) {
-    return asr(left, right, eps, simpson(left, right));
 }
