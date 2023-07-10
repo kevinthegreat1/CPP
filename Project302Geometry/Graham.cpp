@@ -94,6 +94,69 @@ void Graham() {
     }
 }
 
+pair<Point, Point> furthestPoints(Point *convexHull) {
+    Point *p1 = convexHull;
+    Point *p2 = convexHull;
+    long maxDistSquared = 0;
+    pair<Point, Point> maxDistPoints;
+    long curDistSquared = 0;
+    while (true) {
+        long newDistSquared = p1->distanceSquared(*(p2 + 1 == convexHull + n ? convexHull : p2 + 1));
+        if (newDistSquared > curDistSquared) {
+            curDistSquared = newDistSquared;
+            p2 + 1 == convexHull + n ? p2 = convexHull : p2++;
+            if (curDistSquared > maxDistSquared) {
+                maxDistSquared = curDistSquared;
+                maxDistPoints = make_pair(*p1, *p2);
+            }
+        } else if (p1 != convexHull + n - 1) {
+            p1++;
+            curDistSquared = p1->distanceSquared(*p2);
+            if (curDistSquared > maxDistSquared) {
+                maxDistSquared = curDistSquared;
+                maxDistPoints = make_pair(*p1, *p2);
+            }
+        } else {
+            break;
+        }
+    }
+    return maxDistPoints;
+}
+
+double triangleArea(Point p1, Point p2, Point p3) {
+    return 0.5 * abs(p1.x * p2.y + p2.x * p3.y + p3.x * p1.y - p1.x * p3.y - p2.x * p1.y - p3.x * p2.y);
+}
+
+double largestTriangle(const Point *convexHull) {
+    double area = 0;
+    for (int i = 0; i < n; i++) {
+        for (int j = i + 1, k = i + 2; j + 1 < n; j++) {
+            while (k + 1 < n) {
+                double cur = triangleArea(convexHull[i], convexHull[j], convexHull[k]);
+                double next = triangleArea(convexHull[i], convexHull[j], convexHull[k + 1]);
+                if (next > cur) {
+                    k++;
+                } else {
+                    break;
+                }
+            }
+            area = max(area, triangleArea(convexHull[i], convexHull[j], convexHull[k]));
+
+        }
+    }
+    return area;
+}
+
+double minDistance(const Point *convexHull1, int n, const Point *convexHull2, int m) {
+    long minDist = INT64_MAX;
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++) {
+            minDist = min(minDist, convexHull1[i].distanceSquared(convexHull2[j]));
+        }
+    }
+    return minDist;
+}
+
 
 //最远点对
 //最大的三角形
@@ -113,9 +176,19 @@ int main() {
     list[8] = Point(-2, 3);
     list[9] = Point(-1, 1);
     Graham();
+    Point *convexHull = new Point[cnt];
+    for (int i = 0; i < cnt; i++) {
+        convexHull[i] = list[stack[i]];
+    }
     cout << "Graham test 1: "
-         << (cnt == 7 && list[stack[0]] == Point(0, 0) && list[stack[1]] == Point(2, 0) &&
-             list[stack[2]] == Point(4, 1) && list[stack[3]] == Point(3, 4) && list[stack[4]] == Point(-1, 5) &&
-             list[stack[5]] == Point(-2, 3) && list[stack[6]] == Point(-1, 1)) << endl;
+         << (cnt == 7 && convexHull[0] == Point(0, 0) && convexHull[1] == Point(2, 0) &&
+             convexHull[2] == Point(4, 1) && convexHull[3] == Point(3, 4) && convexHull[4] == Point(-1, 5) &&
+             convexHull[5] == Point(-2, 3) && convexHull[6] == Point(-1, 1)) << endl;
+
+    pair<Point, Point> furthestPointsPair = furthestPoints(convexHull);
+    Point p1 = furthestPointsPair.first;
+    Point p2 = furthestPointsPair.second;
+    cout << "furthestPoints test 1: " << (p1 == Point(4, 1) && p2 == Point(-1, 5)) << endl;
+    cout << "largestTriangle test 1: " << (largestTriangle(convexHull) == 10.5) << endl;
     return 0;
 }
