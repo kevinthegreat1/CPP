@@ -50,6 +50,8 @@ typedef struct PointDouble {
 
     explicit PointDouble(double x = 0, double y = 0) : x(x), y(y) {}
 
+    explicit PointDouble(Point p) : x(p.x), y(p.y) {}
+
     bool operator==(const PointDouble &other) const {
         return fabs(this->x - other.x) < EPS && fabs(this->y - other.y) < EPS;
     }
@@ -60,6 +62,10 @@ typedef struct PointDouble {
 
     double distance(const PointDouble &other) const {
         return sqrt(distanceSquared(other));
+    }
+
+    PointDouble operator*(const double &other) const {
+        return PointDouble(x * other, y * other);
     }
 } PointDouble;
 
@@ -235,6 +241,16 @@ Circle ofPoints(Point p1, Point p2, Point p3) {
     return Circle(PointDouble(x, y), r);
 }
 
+PointDouble outerCenter(Point p1, Point p2, Point p3) {
+    double a1 = p2.x - p1.x, b1 = p2.y - p1.y, c1 = (a1 * a1 + b1 * b1) / 2;
+    double a2 = p3.x - p1.x, b2 = p3.y - p1.y, c2 = (a2 * a2 + b2 * b2) / 2;
+    double d = a1 * b2 - a2 * b1;
+    return PointDouble(
+            p1.x + (c1 * b2 - c2 * b1) / d,
+            p1.y + (a1 * c2 - c1 * a2) / d
+    );
+}
+
 double overlappingArea(Circle c1, Circle c2) {
     double d = c1.c.distance(c2.c);
     if (d >= c1.r + c2.r) {
@@ -243,9 +259,12 @@ double overlappingArea(Circle c1, Circle c2) {
     if (d <= fabs(c1.r - c2.r)) {
         return M_PI * min(c1.r, c2.r) * min(c1.r, c2.r);
     }
-    return c1.r * c1.r * acos((d * d + c1.r * c1.r - c2.r * c2.r) / (2 * d * c1.r)) +
-           c2.r * c2.r * acos((d * d + c2.r * c2.r - c1.r * c1.r) / (2 * d * c2.r)) -
-           0.5 * sqrt((-d + c1.r + c2.r) * (d + c1.r - c2.r) * (d - c1.r + c2.r) * (d + c1.r + c2.r));
+    double t1 = acos((d * d + c1.r * c1.r - c2.r * c2.r) / (2 * d * c1.r));
+    double t2 = acos((d * d + c2.r * c2.r - c1.r * c1.r) / (2 * d * c2.r));
+    return c1.r * c1.r * t1 +
+           c2.r * c2.r * t2 -
+           // 0.5 * sqrt((-d + c1.r + c2.r) * (d + c1.r - c2.r) * (d - c1.r + c2.r) * (d + c1.r + c2.r))
+           d * c1.r * sin(t1);
 }
 
 pair<PointDouble, PointDouble> getTangentPoints(Circle c, Point p) {
